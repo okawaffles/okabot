@@ -1,4 +1,12 @@
-import {ChatInputCommandInteraction, Client, EmbedBuilder, Message, SlashCommandBuilder, TextChannel} from 'discord.js';
+import {
+    ChatInputCommandInteraction,
+    Client,
+    EmbedBuilder,
+    Message,
+    MessageFlags,
+    SlashCommandBuilder,
+    TextChannel
+} from 'discord.js';
 import {join} from 'path';
 import {BASE_DIRNAME, client, DEV, DMDATA_API_KEY} from '../..';
 import {existsSync, mkdirSync, readFileSync, writeFileSync} from 'fs';
@@ -130,6 +138,14 @@ export async function StartEarthquakeMonitoring(client: Client, disable_fetching
     SOCKET.on(WebSocketEvent.EARTHQUAKE_REPORT, async (data: EarthquakeInformationSchemaBody) => {
         // make embed
         console.log(data);
+
+        if (!data.intensity) {
+            return (channel as TextChannel)!.send({
+                content:'`WebSocketEvent.EARTHQUAKE_REPORT` was fired, but there was no `data.intensity`, so i\'m just gonna skip it! the real one should come soon!\n\nthis message is purely for debugging purposes -lily',
+                flags: [MessageFlags.SuppressNotifications]
+            })
+        }
+
         const embed = await BuildEarthquakeEmbed(
             new Date(data.earthquake.originTime || 0), 
             data.earthquake.magnitude.value,
@@ -153,7 +169,7 @@ export async function StartEarthquakeMonitoring(client: Client, disable_fetching
         L.debug('dmdata connection opened ok!');
         if (is_reconnecting) (channel as TextChannel)!.send({
             content:`okaaay, i reconnected successfully after ${reconnect_tries>1?reconnect_tries+' tries':reconnect_tries+' try'}.`,
-            flags:'SuppressNotifications'
+            flags:[MessageFlags.SuppressNotifications]
         });
         is_reconnecting = false;
     });
@@ -162,7 +178,7 @@ export async function StartEarthquakeMonitoring(client: Client, disable_fetching
         L.debug('dmdata connection closed!');
         (channel as TextChannel)!.send({
             content:'i was disconnected from dmdata, i will try to reconnect in 3 seconds...',
-            flags:'SuppressNotifications'
+            flags:[MessageFlags.SuppressNotifications]
         });
 
         is_reconnecting = true;
@@ -178,7 +194,7 @@ export async function StartEarthquakeMonitoring(client: Client, disable_fetching
         console.log(data);
 
         let embed = BuildEEWEmbed(
-            new Date(data.earthquake.originTime),
+            new Date((data.earthquake || {originTime:'0'}).originTime),
             data.earthquake.magnitude.value,
             (data.intensity || {forecastMaxInt: {to: 'unknown'}}).forecastMaxInt.to,
             data.earthquake.hypocenter.depth.value,
@@ -194,7 +210,7 @@ export async function StartEarthquakeMonitoring(client: Client, disable_fetching
             event.report_count = data.isLastInfo?999:parseInt(data.serialNo);
 
             embed = BuildEEWEmbed(
-                new Date(data.earthquake.originTime),
+                new Date((data.earthquake || {originTime:'0'}).originTime),
                 data.earthquake.magnitude.value,
                 (data.intensity || {forecastMaxInt: {to: 'unknown'}}).forecastMaxInt.to,
                 data.earthquake.hypocenter.depth.value,
@@ -222,7 +238,7 @@ export async function StartEarthquakeMonitoring(client: Client, disable_fetching
         console.log(data.serialNo);
 
         let embed = BuildEEWEmbed(
-            new Date(data.earthquake.originTime),
+            new Date((data.earthquake || {originTime:'0'}).originTime),
             data.earthquake.magnitude.value,
             data.intensity.forecastMaxInt.to,
             data.earthquake.hypocenter.depth.value,
@@ -239,7 +255,7 @@ export async function StartEarthquakeMonitoring(client: Client, disable_fetching
             EXISTING_EARTHQUAKES.set(data.eventId, event);
 
             embed = BuildEEWEmbed(
-                new Date(data.earthquake.originTime),
+                new Date((data.earthquake || {originTime:'0'}).originTime),
                 data.earthquake.magnitude.value,
                 data.intensity.forecastMaxInt.to,
                 data.earthquake.hypocenter.depth.value,
